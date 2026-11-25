@@ -1,0 +1,2408 @@
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AetherSound — Hybrid Offline & YouTube Music Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            400: '#818cf8',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                        },
+                        violet: {
+                            400: '#c084fc',
+                            500: '#a855f7',
+                        },
+                        surface: {
+                            900: '#09090f',
+                            800: '#12131f',
+                            700: '#1a1c2e',
+                            600: '#252840',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar for sleek dark aesthetic */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.02);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.14);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        /* Custom Range Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 5px;
+            border-radius: 9999px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #ffffff;
+            margin-top: -4.5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.6);
+            transition: transform 0.15s ease, background-color 0.15s ease;
+        }
+        input[type="range"]:hover::-webkit-slider-thumb {
+            transform: scale(1.22);
+            background: #a855f7;
+        }
+
+        /* Subtle Playing Equalizer Animation */
+        @keyframes eqBar1 { 0%, 100% { height: 25%; } 50% { height: 95%; } }
+        @keyframes eqBar2 { 0%, 100% { height: 80%; } 50% { height: 20%; } }
+        @keyframes eqBar3 { 0%, 100% { height: 40%; } 50% { height: 100%; } }
+        .eq-bar-1 { animation: eqBar1 0.7s ease-in-out infinite; }
+        .eq-bar-2 { animation: eqBar2 0.55s ease-in-out infinite; }
+        .eq-bar-3 { animation: eqBar3 0.85s ease-in-out infinite; }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: rgba(18, 19, 31, 0.76);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="bg-surface-900 text-zinc-100 font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-300 min-h-screen flex flex-col overflow-x-hidden">
+
+    <!-- Ambient Background Glow -->
+    <div class="fixed inset-0 pointer-events-none overflow-hidden z-0">
+        <div class="absolute -top-40 -left-40 w-[28rem] h-[28rem] bg-indigo-500/15 rounded-full blur-3xl"></div>
+        <div class="absolute top-1/3 -right-40 w-[30rem] h-[30rem] bg-purple-500/15 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-40 left-1/3 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl"></div>
+    </div>
+
+    <!-- Drag & Drop Fullscreen Overlay -->
+    <div id="dropOverlay" class="fixed inset-0 z-50 bg-surface-900/90 backdrop-blur-md hidden flex-col items-center justify-center border-4 border-dashed border-indigo-500/70 m-4 rounded-3xl transition-all">
+        <div class="p-6 rounded-full bg-indigo-500/20 text-indigo-400 mb-4 animate-bounce">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+            </svg>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-1">Drop Audio Files or Folders</h2>
+        <p class="text-zinc-400 text-sm">Supports MP3, WAV, OGG, FLAC, M4A — Saved locally in IndexedDB</p>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="relative z-20 border-b border-white/5 bg-surface-900/75 backdrop-blur-md sticky top-0">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+            <!-- Brand & Network Status -->
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-rose-500 flex items-center justify-center shadow-lg shadow-indigo-500/25 shrink-0">
+                    <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-bold text-lg tracking-tight leading-none text-white">Aether<span class="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Sound</span></h1>
+                        <span class="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">Hybrid</span>
+                    </div>
+                    <div id="networkStatusBadge" class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 mt-0.5">
+                        <span id="networkDot" class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                        <span id="networkStatusText">Online • YouTube & Local Ready</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+                <input type="file" id="fileInput" multiple accept=".mp3,.wav,.ogg,.flac,.m4a,audio/*" class="hidden">
+                <input type="file" id="folderInput" webkitdirectory directory multiple class="hidden">
+
+                <!-- Load YT Playlist Modal Trigger -->
+                <button id="openYtModalBtn" class="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition active:scale-95">
+                    <svg class="w-4 h-4 text-rose-400" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                    </svg>
+                    <span class="hidden sm:inline">YT Playlist</span>
+                </button>
+
+                <!-- Add Offline Files -->
+                <button id="importFilesBtn" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-1.5 transition shadow-lg shadow-indigo-500/25 active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span>Add Offline</span>
+                </button>
+
+                <!-- Import Folder -->
+                <button id="importFolderBtn" title="Import Folder Offline" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 transition active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                </button>
+
+                <!-- Clear Local DB -->
+                <button id="clearLibraryBtn" title="Clear Saved Offline Uploads" class="p-2 rounded-xl bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-zinc-400 hover:text-red-400 transition active:scale-95">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Workspace -->
+    <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-36 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Now Playing Stage, YouTube Mini-Viewport & Visualizer -->
+        <section class="lg:col-span-5 flex flex-col gap-5">
+            <div class="glass rounded-3xl p-5 sm:p-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+                
+                <!-- Stage Header: Visualizer / Video Toggle -->
+                <div class="flex items-center justify-between gap-2 mb-4">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                        <span id="liveIndicator" class="w-2 h-2 rounded-full bg-zinc-600"></span>
+                        <span id="stageLabel">Spectrum Analyzer</span>
+                    </span>
+
+                    <div class="flex items-center gap-1.5">
+                        <!-- Toggle YT Video Screen (shown when YT track is active) -->
+                        <button id="toggleYtVideoBtn" class="hidden px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/30 text-rose-300 hover:bg-rose-500/30 text-xs font-medium transition flex items-center gap-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            <span id="toggleYtVideoText">Hide Video</span>
+                        </button>
+
+                        <!-- Visualizer Mode Switch -->
+                        <div id="visModeSwitch" class="flex items-center bg-surface-900/90 p-1 rounded-xl border border-white/5 text-xs">
+                            <button id="visModeBars" class="px-2.5 py-1 rounded-lg bg-white/10 text-white font-medium transition">Bars</button>
+                            <button id="visModeWave" class="px-2.5 py-1 rounded-lg text-zinc-400 hover:text-white font-medium transition">Wave</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Media Stage Container (Canvas Visualizer + Embedded YouTube IFrame Viewport) -->
+                <div class="relative w-full h-56 sm:h-64 rounded-2xl bg-surface-900 border border-white/10 overflow-hidden flex items-center justify-center shadow-inner">
+                    <!-- Real-Time Audio Visualizer Canvas -->
+                    <canvas id="visualizerCanvas" class="w-full h-full block"></canvas>
+
+                    <!-- Embedded YouTube IFrame Player Container (TOS Compliant Visible Viewport) -->
+                    <div id="ytPlayerWrapper" class="absolute inset-0 z-10 bg-black transition-opacity duration-300 opacity-0 pointer-events-none">
+                        <div id="ytPlayerContainer" class="w-full h-full"></div>
+                    </div>
+
+                    <!-- Center Track Art Badge (Visible when in Visualizer mode) -->
+                    <div id="artBadge" class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-t from-surface-900/80 via-transparent to-transparent transition-opacity duration-300">
+                        <div id="albumPulse" class="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 flex items-center justify-center shadow-xl transition-transform duration-300">
+                            <svg class="w-8 h-8 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Track Metadata -->
+                <div class="mt-5 text-center sm:text-left">
+                    <div class="flex items-center justify-center sm:justify-between gap-2 mb-1">
+                        <span id="sourceBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                            LOCAL OFFLINE
+                        </span>
+                        <span id="trackFormat" class="text-xs text-zinc-500 font-mono">READY</span>
+                    </div>
+                    <h2 id="currentTitle" class="text-xl sm:text-2xl font-bold text-white truncate mt-2">Loading Hybrid Engine...</h2>
+                    <p id="currentArtist" class="text-sm text-zinc-400 truncate mt-0.5">AetherSound Studio</p>
+                </div>
+
+                <!-- Keyboard Shortcuts Hint -->
+                <div class="mt-5 pt-3.5 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+                    <span class="flex items-center gap-1.5">
+                        <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-mono">Space</kbd> Play/Pause
+                    </span>
+                    <span class="flex items-center gap-1.5">
+                        <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-mono">←</kbd>
+                        <kbd class="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-zinc-300 font-mono">→</kbd> Seek ±5s
+                    </span>
+                </div>
+            </div>
+
+            <!-- Quick YouTube Playlist URL Bar Card -->
+            <div class="glass rounded-3xl p-4 sm:p-5 border border-white/10">
+                <div class="flex items-center justify-between mb-2.5">
+                    <label for="quickYtInput" class="text-xs font-semibold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Stream YouTube Playlist (Online)
+                    </label>
+                    <select id="savedYtSelect" class="bg-surface-900 border border-white/10 rounded-lg text-xs text-zinc-300 px-2 py-1 focus:outline-none focus:border-rose-500/50 max-w-[160px] truncate">
+                        <!-- Saved YT playlists populated here -->
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <input type="text" id="quickYtInput" placeholder="Paste YouTube playlist or video link..." class="flex-1 px-3 py-2 rounded-xl bg-surface-900/90 border border-white/10 focus:border-rose-500/50 focus:outline-none text-xs sm:text-sm text-white placeholder-zinc-500">
+                    <button id="quickYtLoadBtn" class="px-3.5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-semibold text-xs sm:text-sm transition shrink-0 active:scale-95">
+                        Load
+                    </button>
+                </div>
+            </div>
+
+            <!-- Offline Dropzone Card -->
+            <div id="dropZoneCard" class="glass rounded-3xl p-4 border border-dashed border-white/15 hover:border-emerald-400/50 transition cursor-pointer group">
+                <div class="flex items-center justify-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-emerald-500/10 group-hover:bg-emerald-500/20 text-emerald-400 flex items-center justify-center transition shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                    </div>
+                    <div class="text-left">
+                        <p class="text-xs sm:text-sm font-medium text-zinc-200 group-hover:text-white">Drop local audio files or folders for Offline Mode</p>
+                        <p class="text-[11px] text-zinc-500">Persisted automatically in IndexedDB</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Unified Hybrid Playlist & Search -->
+        <section class="lg:col-span-7 glass rounded-3xl p-5 sm:p-6 flex flex-col shadow-2xl min-h-[460px]">
+            <!-- Playlist Header & Search -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-white/5">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        Hybrid Queue & Library
+                        <span id="trackCountBadge" class="text-xs font-semibold px-2 py-0.5 rounded-full bg-white/10 text-zinc-300">0</span>
+                    </h3>
+                    <p id="storageStatus" class="text-xs text-zinc-400 mt-0.5">Initializing offline & online engines...</p>
+                </div>
+
+                <!-- Search Input -->
+                <div class="relative w-full sm:w-64">
+                    <svg class="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search tracks or YT index..." class="w-full pl-9 pr-8 py-2 rounded-xl bg-surface-900/80 border border-white/10 focus:border-indigo-500/50 focus:outline-none text-sm text-white placeholder-zinc-500 transition">
+                    <button id="clearSearchBtn" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Unified Mode / Filter Tabs -->
+            <div class="flex flex-wrap items-center justify-between gap-2 py-3 border-b border-white/5">
+                <div class="flex items-center gap-1.5 text-xs">
+                    <button data-filter="all" class="filter-tab px-3 py-1.5 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 font-semibold transition">
+                        All Hybrid
+                    </button>
+                    <button data-filter="youtube" class="filter-tab px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent font-medium transition flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        YouTube Playlist
+                    </button>
+                    <button data-filter="offline" class="filter-tab px-3 py-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent font-medium transition flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                        Offline Local
+                    </button>
+                </div>
+
+                <span id="activeYtPlaylistLabel" class="text-[11px] font-mono text-rose-400/90 bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20 truncate max-w-[210px]">
+                    YT: PLD4NjSyB58rw
+                </span>
+            </div>
+
+            <!-- Playlist Column Headers -->
+            <div class="grid grid-cols-12 gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-zinc-500 border-b border-white/5">
+                <div class="col-span-1 text-center">#</div>
+                <div class="col-span-7 sm:col-span-8">Track & Source</div>
+                <div class="col-span-2 text-right">Time</div>
+                <div class="col-span-2 sm:col-span-1 text-right">Action</div>
+            </div>
+
+            <!-- Scrollable Track List -->
+            <div id="playlistContainer" class="flex-1 overflow-y-auto divide-y divide-white/[0.03] mt-1 max-h-[480px] pr-1">
+                <!-- Tracks dynamically rendered here -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Fixed Unified Player Control Bar -->
+    <footer class="fixed bottom-0 inset-x-0 z-30 glass border-t border-white/10 px-4 py-3 sm:py-3.5 shadow-2xl">
+        <div class="max-w-7xl mx-auto flex flex-col gap-2">
+            
+            <!-- Progress / Seek Bar -->
+            <div class="flex items-center gap-3 w-full">
+                <span id="currentTimeLabel" class="text-[11px] font-mono text-zinc-400 w-10 text-right">0:00</span>
+                <div class="relative flex-1 flex items-center group">
+                    <input type="range" id="seekSlider" min="0" max="100" value="0" step="0.1" class="w-full z-10">
+                    <div class="absolute inset-x-0 h-[5px] bg-white/10 rounded-full overflow-hidden pointer-events-none">
+                        <div id="seekProgressFill" class="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-rose-500 w-0 transition-all duration-75"></div>
+                    </div>
+                </div>
+                <span id="totalDurationLabel" class="text-[11px] font-mono text-zinc-400 w-10">0:00</span>
+            </div>
+
+            <!-- Controls Row -->
+            <div class="grid grid-cols-3 items-center gap-2">
+                
+                <!-- Left: Mini Track Info -->
+                <div class="flex items-center gap-3 min-w-0">
+                    <div id="miniDisc" class="w-10 h-10 rounded-xl bg-surface-700 border border-white/10 flex items-center justify-center shrink-0 text-indigo-400">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 hidden sm:block">
+                        <p id="footerTitle" class="text-sm font-semibold text-white truncate">No track selected</p>
+                        <p id="footerArtist" class="text-xs text-zinc-400 truncate">Ready</p>
+                    </div>
+                </div>
+
+                <!-- Center: Main Transport Buttons -->
+                <div class="flex items-center justify-center gap-3 sm:gap-5">
+                    <!-- Shuffle -->
+                    <button id="shuffleBtn" title="Shuffle" class="p-2 rounded-lg text-zinc-400 hover:text-white transition relative">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span id="shuffleDot" class="hidden w-1 h-1 rounded-full bg-indigo-400 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
+                    </button>
+
+                    <!-- Previous -->
+                    <button id="prevBtn" title="Previous" class="p-2 rounded-lg text-zinc-200 hover:text-white hover:bg-white/5 transition active:scale-90">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
+                        </svg>
+                    </button>
+
+                    <!-- Play / Pause -->
+                    <button id="playPauseBtn" title="Play / Pause (Space)" class="w-11 h-11 rounded-full bg-white hover:bg-indigo-400 text-surface-900 hover:text-white flex items-center justify-center shadow-lg shadow-white/10 transition transform active:scale-95">
+                        <svg id="playIcon" class="w-5 h-5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                        <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                        </svg>
+                    </button>
+
+                    <!-- Next -->
+                    <button id="nextBtn" title="Next" class="p-2 rounded-lg text-zinc-200 hover:text-white hover:bg-white/5 transition active:scale-90">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+                        </svg>
+                    </button>
+
+                    <!-- Repeat -->
+                    <button id="repeatBtn" title="Repeat: Off" class="p-2 rounded-lg text-zinc-400 hover:text-white transition relative">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span id="repeatOneBadge" class="hidden text-[9px] font-bold bg-indigo-500 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center absolute -top-0.5 -right-0.5">1</span>
+                        <span id="repeatDot" class="hidden w-1 h-1 rounded-full bg-indigo-400 absolute bottom-0.5 left-1/2 -translate-x-1/2"></span>
+                    </button>
+                </div>
+
+                <!-- Right: Volume Control -->
+                <div class="flex items-center justify-end gap-2">
+                    <button id="muteBtn" title="Mute / Unmute" class="p-2 rounded-lg text-zinc-400 hover:text-white transition">
+                        <svg id="volHighIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                        </svg>
+                        <svg id="volMuteIcon" class="w-5 h-5 hidden text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path>
+                        </svg>
+                    </button>
+                    <div class="relative w-20 sm:w-28 flex items-center">
+                        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8" class="w-full z-10">
+                        <div class="absolute inset-x-0 h-[5px] bg-white/10 rounded-full overflow-hidden pointer-events-none">
+                            <div id="volumeFill" class="h-full bg-zinc-300 w-[80%]"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </footer>
+
+    <!-- Custom Non-Blocking Toast Notification Container -->
+    <div id="toastContainer" class="fixed top-20 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Clear Offline Library Confirmation Modal -->
+    <div id="confirmModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-white/10">
+            <h3 class="text-lg font-bold text-white mb-2">Clear Saved Offline Uploads?</h3>
+            <p class="text-sm text-zinc-400 mb-6">This permanently deletes all locally uploaded files from your browser's IndexedDB storage. Built-in demo tracks and YouTube playlists will remain intact.</p>
+            <div class="flex items-center justify-end gap-3">
+                <button id="cancelClearBtn" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-sm font-medium text-zinc-300 transition">Cancel</button>
+                <button id="confirmClearBtn" class="px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-sm font-semibold text-white transition">Clear Offline Files</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- YouTube Playlist Manager Modal -->
+    <div id="ytModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass rounded-3xl max-w-md w-full p-6 shadow-2xl border border-white/10">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                    Load YouTube Playlist / Video
+                </h3>
+                <button id="closeYtModalBtn" class="text-zinc-400 hover:text-white p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <p class="text-xs text-zinc-400 mb-4">Paste any public YouTube playlist URL (with <code class="text-rose-300">list=...</code>) or video link. Saved playlists stay in your browser for quick switching whenever you're online.</p>
+            
+            <div class="space-y-3 mb-5">
+                <div>
+                    <label class="block text-xs font-medium text-zinc-300 mb-1">Custom Label (Optional)</label>
+                    <input type="text" id="ytCustomLabelInput" placeholder="e.g., Nepali Chill Mix" class="w-full px-3.5 py-2 rounded-xl bg-surface-900 border border-white/10 focus:border-rose-500/50 focus:outline-none text-sm text-white">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-zinc-300 mb-1">YouTube URL or Playlist ID</label>
+                    <input type="text" id="ytModalUrlInput" placeholder="https://youtube.com/playlist?list=PLD4NjSyB58rw..." class="w-full px-3.5 py-2 rounded-xl bg-surface-900 border border-white/10 focus:border-rose-500/50 focus:outline-none text-sm text-white">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+                <button id="resetDefaultYtBtn" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-medium text-zinc-300 transition mr-auto">
+                    Default Playlist
+                </button>
+                <button id="saveAndLoadYtBtn" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-sm font-semibold text-white transition">
+                    Stream Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * AetherSound Hybrid Music Studio
+         * Combines:
+         * 1. IndexedDBManager: Offline storage for user-uploaded audio files/folders.
+         * 2. SynthTrackGenerator: Offline Web Audio synthesizer for built-in demo tracks.
+         * 3. YouTubePlaylistController: Wraps YouTube IFrame Player API for online playlist streaming.
+         * 4. AudioVisualizer: Dual-mode visualizer (Real FFT for local audio + reactive synth spectrum for YouTube stream).
+         * 5. HybridPlayerApp: Unified state machine, transport bar, queue filter, search, and offline/online fallback.
+         */
+
+        const DEFAULT_YT_PLAYLIST_ID = 'PLD4NjSyB58rw';
+        const DEFAULT_YT_PLAYLIST_URL = 'https://youtube.com/playlist?list=PLD4NjSyB58rw&si=MHyDvK3d-st1KL9_';
+
+        // ==========================================
+        // 1. INDEXEDDB STORAGE MANAGER (OFFLINE)
+        // ==========================================
+        class IndexedDBManager {
+            constructor(dbName = 'AetherSoundDB', storeName = 'tracks') {
+                this.dbName = dbName;
+                this.storeName = storeName;
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 1);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: 'id' });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async saveTrack(trackRecord) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.storeName, 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    const req = store.put(trackRecord);
+                    req.onsuccess = () => resolve(true);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async getAllTracks() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.storeName, 'readonly');
+                    const store = tx.objectStore(this.storeName);
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async deleteTrack(id) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.storeName, 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    const req = store.delete(id);
+                    req.onsuccess = () => resolve(true);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+
+            async clearAll() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(this.storeName, 'readwrite');
+                    const store = tx.objectStore(this.storeName);
+                    const req = store.clear();
+                    req.onsuccess = () => resolve(true);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            }
+        }
+
+        // ==========================================
+        // 2. BUILT-IN OFFLINE SYNTH DEMO GENERATOR
+        // ==========================================
+        class SynthTrackGenerator {
+            static async generateDemoTracks() {
+                const specs = [
+                    {
+                        id: 'demo-midnight-lofi',
+                        title: 'Midnight Rain & Rhodes',
+                        artist: 'Aether Synth Engine (Offline Demo)',
+                        duration: 28,
+                        type: 'lofi'
+                    },
+                    {
+                        id: 'demo-orbital-drift',
+                        title: 'Orbital Drift 432Hz',
+                        artist: 'Aether Synth Engine (Offline Demo)',
+                        duration: 32,
+                        type: 'ambient'
+                    },
+                    {
+                        id: 'demo-cyber-pulse',
+                        title: 'Neon Horizon Arpeggio',
+                        artist: 'Aether Synth Engine (Offline Demo)',
+                        duration: 24,
+                        type: 'synthwave'
+                    }
+                ];
+
+                const results = [];
+                for (const spec of specs) {
+                    const blob = await this.renderTrackBlob(spec);
+                    results.push({
+                        id: spec.id,
+                        title: spec.title,
+                        artist: spec.artist,
+                        duration: spec.duration,
+                        format: 'SYNTH WAV',
+                        source: 'offline',
+                        isDemo: true,
+                        blob: blob,
+                        url: URL.createObjectURL(blob),
+                        addedAt: 0
+                    });
+                }
+                return results;
+            }
+
+            static async renderTrackBlob(spec) {
+                const sampleRate = 44100;
+                const length = sampleRate * spec.duration;
+                const offlineCtx = new OfflineAudioContext(2, length, sampleRate);
+
+                const compressor = offlineCtx.createDynamicsCompressor();
+                compressor.threshold.value = -14;
+                compressor.ratio.value = 4;
+                compressor.connect(offlineCtx.destination);
+
+                if (spec.type === 'lofi') {
+                    const chords = [
+                        [261.63, 329.63, 392.00, 493.88],
+                        [220.00, 261.63, 329.63, 392.00],
+                        [174.61, 220.00, 261.63, 349.23],
+                        [196.00, 246.94, 293.66, 349.23]
+                    ];
+                    const stepDur = 3.5;
+                    for (let t = 0; t < spec.duration; t += stepDur) {
+                        const chord = chords[Math.floor((t / stepDur) % chords.length)];
+                        chord.forEach((freq, idx) => {
+                            const osc = offlineCtx.createOscillator();
+                            const gain = offlineCtx.createGain();
+                            const filter = offlineCtx.createBiquadFilter();
+                            osc.type = idx % 2 === 0 ? 'triangle' : 'sine';
+                            osc.frequency.setValueAtTime(freq, t);
+                            osc.detune.setValueAtTime(Math.sin(t + idx) * 6, t);
+
+                            filter.type = 'lowpass';
+                            filter.frequency.setValueAtTime(950, t);
+
+                            gain.gain.setValueAtTime(0.001, t);
+                            gain.gain.linearRampToValueAtTime(0.08, t + 0.25);
+                            gain.gain.exponentialRampToValueAtTime(0.001, t + stepDur - 0.1);
+
+                            osc.connect(filter);
+                            filter.connect(gain);
+                            gain.connect(compressor);
+                            osc.start(t);
+                            osc.stop(t + stepDur);
+                        });
+                    }
+                    const noiseBuffer = offlineCtx.createBuffer(1, length, sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < length; i++) {
+                        output[i] = (Math.random() * 2 - 1) * 0.015;
+                    }
+                    const whiteNoise = offlineCtx.createBufferSource();
+                    whiteNoise.buffer = noiseBuffer;
+                    const noiseFilter = offlineCtx.createBiquadFilter();
+                    noiseFilter.type = 'bandpass';
+                    noiseFilter.frequency.value = 1800;
+                    whiteNoise.connect(noiseFilter);
+                    noiseFilter.connect(compressor);
+                    whiteNoise.start(0);
+
+                } else if (spec.type === 'ambient') {
+                    const freqs = [110, 164.81, 196.00, 246.94, 329.63];
+                    freqs.forEach((f, i) => {
+                        const osc = offlineCtx.createOscillator();
+                        const gain = offlineCtx.createGain();
+                        osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+                        osc.frequency.setValueAtTime(f, 0);
+
+                        const lfo = offlineCtx.createOscillator();
+                        const lfoGain = offlineCtx.createGain();
+                        lfo.frequency.value = 0.12 + i * 0.04;
+                        lfoGain.gain.value = 0.04;
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(gain.gain);
+
+                        gain.gain.setValueAtTime(0.06, 0);
+                        gain.gain.setValueAtTime(0.06, spec.duration - 3);
+                        gain.gain.linearRampToValueAtTime(0.0001, spec.duration);
+
+                        osc.connect(gain);
+                        gain.connect(compressor);
+                        osc.start(0);
+                        lfo.start(0);
+                    });
+
+                } else {
+                    const arpNotes = [220, 261.63, 329.63, 392.00, 440, 392.00, 329.63, 261.63];
+                    const noteLen = 0.25;
+                    for (let t = 0; t < spec.duration; t += noteLen) {
+                        const idx = Math.floor(t / noteLen);
+                        const freq = arpNotes[idx % arpNotes.length];
+                        const osc = offlineCtx.createOscillator();
+                        const filter = offlineCtx.createBiquadFilter();
+                        const gain = offlineCtx.createGain();
+
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(freq, t);
+
+                        filter.type = 'lowpass';
+                        filter.frequency.setValueAtTime(1600, t);
+                        filter.frequency.exponentialRampToValueAtTime(300, t + noteLen);
+
+                        gain.gain.setValueAtTime(0.09, t);
+                        gain.gain.exponentialRampToValueAtTime(0.001, t + noteLen * 0.95);
+
+                        osc.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(compressor);
+                        osc.start(t);
+                        osc.stop(t + noteLen);
+
+                        if (idx % 2 === 0) {
+                            const bass = offlineCtx.createOscillator();
+                            const bGain = offlineCtx.createGain();
+                            bass.type = 'triangle';
+                            bass.frequency.setValueAtTime(55, t);
+                            bGain.gain.setValueAtTime(0.22, t);
+                            bGain.gain.exponentialRampToValueAtTime(0.001, t + noteLen * 1.8);
+                            bass.connect(bGain);
+                            bGain.connect(compressor);
+                            bass.start(t);
+                            bass.stop(t + noteLen * 1.9);
+                        }
+                    }
+                }
+
+                const renderedBuffer = await offlineCtx.startRendering();
+                return this.audioBufferToWavBlob(renderedBuffer);
+            }
+
+            static audioBufferToWavBlob(buffer) {
+                const numChannels = buffer.numberOfChannels;
+                const sampleRate = buffer.sampleRate;
+                const format = 1;
+                const bitDepth = 16;
+                const result = new Float32Array(buffer.length * numChannels);
+
+                for (let ch = 0; ch < numChannels; ch++) {
+                    const channelData = buffer.getChannelData(ch);
+                    for (let i = 0; i < buffer.length; i++) {
+                        result[i * numChannels + ch] = channelData[i];
+                    }
+                }
+
+                const dataLength = result.length * (bitDepth / 8);
+                const wavBuffer = new ArrayBuffer(44 + dataLength);
+                const view = new DataView(wavBuffer);
+
+                const writeString = (offset, str) => {
+                    for (let i = 0; i < str.length; i++) {
+                        view.setUint8(offset + i, str.charCodeAt(i));
+                    }
+                };
+
+                writeString(0, 'RIFF');
+                view.setUint32(4, 36 + dataLength, true);
+                writeString(8, 'WAVE');
+                writeString(12, 'fmt ');
+                view.setUint32(16, 16, true);
+                view.setUint16(20, format, true);
+                view.setUint16(22, numChannels, true);
+                view.setUint32(24, sampleRate, true);
+                view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+                view.setUint16(32, numChannels * (bitDepth / 8), true);
+                view.setUint16(34, bitDepth, true);
+                writeString(36, 'data');
+                view.setUint32(40, dataLength, true);
+
+                let offset = 44;
+                for (let i = 0; i < result.length; i++, offset += 2) {
+                    const s = Math.max(-1, Math.min(1, result[i]));
+                    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+                }
+
+                return new Blob([wavBuffer], { type: 'audio/wav' });
+            }
+        }
+
+        // ==========================================
+        // 3. REAL-TIME & REACTIVE AUDIO VISUALIZER
+        // ==========================================
+        class AudioVisualizer {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.analyser = null;
+                this.dataArray = null;
+                this.mode = 'bars'; // 'bars' | 'wave'
+                this.isPlaying = false;
+                this.isYouTubeMode = false;
+                this.phase = 0;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            setupAnalyser(analyserNode) {
+                this.analyser = analyserNode;
+                this.analyser.fftSize = 256;
+                this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                const dpr = window.devicePixelRatio || 1;
+                this.canvas.width = rect.width * dpr;
+                this.canvas.height = rect.height * dpr;
+                this.ctx.scale(dpr, dpr);
+                this.width = rect.width;
+                this.height = rect.height;
+            }
+
+            setMode(mode) {
+                this.mode = mode;
+            }
+
+            start() {
+                const render = () => {
+                    requestAnimationFrame(render);
+                    this.draw();
+                };
+                render();
+            }
+
+            draw() {
+                const ctx = this.ctx;
+                const w = this.width;
+                const h = this.height;
+                ctx.clearRect(0, 0, w, h);
+                this.phase += 0.06;
+
+                // Use real FFT for Local Audio, or harmonic reactive spectrum for YouTube Stream
+                const useRealFFT = !this.isYouTubeMode && this.analyser && this.dataArray;
+
+                if (this.mode === 'bars') {
+                    if (useRealFFT) {
+                        this.analyser.getByteFrequencyData(this.dataArray);
+                    }
+                    const barCount = 48;
+                    const gap = 4;
+                    const barWidth = (w - gap * (barCount - 1)) / barCount;
+
+                    for (let i = 0; i < barCount; i++) {
+                        let percent = 0.03;
+                        if (this.isPlaying) {
+                            if (useRealFFT) {
+                                const dataIndex = Math.floor(i * 1.4);
+                                percent = this.dataArray[dataIndex] / 255;
+                            } else {
+                                // Smooth harmonic simulation for cross-origin YouTube audio
+                                const wave1 = Math.sin(this.phase + i * 0.28) * 0.5 + 0.5;
+                                const wave2 = Math.cos(this.phase * 1.4 - i * 0.15) * 0.5 + 0.5;
+                                const envelope = Math.sin((i / barCount) * Math.PI);
+                                percent = (wave1 * 0.55 + wave2 * 0.45) * envelope * 0.85;
+                            }
+                        }
+                        const barHeight = Math.max(4, percent * (h * 0.82));
+                        const x = i * (barWidth + gap);
+                        const y = h - barHeight;
+
+                        const grad = ctx.createLinearGradient(0, y, 0, h);
+                        if (this.isYouTubeMode) {
+                            grad.addColorStop(0, '#fb7185');
+                            grad.addColorStop(0.6, '#f43f5e');
+                            grad.addColorStop(1, 'rgba(244, 63, 94, 0.15)');
+                        } else {
+                            grad.addColorStop(0, '#a855f7');
+                            grad.addColorStop(0.55, '#6366f1');
+                            grad.addColorStop(1, 'rgba(99, 102, 241, 0.15)');
+                        }
+
+                        ctx.fillStyle = grad;
+                        ctx.beginPath();
+                        ctx.roundRect(x, y, barWidth, barHeight, [4, 4, 0, 0]);
+                        ctx.fill();
+                    }
+                } else {
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeStyle = this.isYouTubeMode ? '#fb7185' : '#818cf8';
+                    ctx.beginPath();
+
+                    if (useRealFFT) {
+                        this.analyser.getByteTimeDomainData(this.dataArray);
+                        const sliceWidth = w / this.dataArray.length;
+                        let x = 0;
+                        for (let i = 0; i < this.dataArray.length; i++) {
+                            const v = this.isPlaying ? this.dataArray[i] / 128.0 : 1.0;
+                            const y = (v * h) / 2;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                            x += sliceWidth;
+                        }
+                    } else {
+                        const points = 96;
+                        const sliceWidth = w / points;
+                        let x = 0;
+                        for (let i = 0; i <= points; i++) {
+                            const amp = this.isPlaying ? (h * 0.25) * Math.sin((i / points) * Math.PI) : 0;
+                            const y = (h / 2) + Math.sin(this.phase * 1.5 + i * 0.25) * amp;
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                            x += sliceWidth;
+                        }
+                    }
+                    ctx.lineTo(w, h / 2);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        // ==========================================
+        // 4. YOUTUBE IFRAME PLAYLIST CONTROLLER
+        // ==========================================
+        class YouTubePlaylistController {
+            constructor(callbacks) {
+                this.callbacks = callbacks;
+                this.player = null;
+                this.isReady = false;
+                this.apiLoaded = false;
+                this.activePlaylistId = DEFAULT_YT_PLAYLIST_ID;
+                this.activeVideoId = null;
+                this.playlistVideoIds = [];
+                this.videoMetadataCache = {}; // { videoId: { title, author, duration } }
+                this.pollTimer = null;
+            }
+
+            loadAPI() {
+                if (!navigator.onLine) {
+                    this.callbacks.onError('You are offline. Connect to the internet to stream YouTube playlists.');
+                    return;
+                }
+                if (window.YT && window.YT.Player) {
+                    this.initPlayer();
+                    return;
+                }
+                window.onYouTubeIframeAPIReady = () => {
+                    this.apiLoaded = true;
+                    this.initPlayer();
+                };
+                const tag = document.createElement('script');
+                tag.src = 'https://www.youtube.com/iframe_api';
+                tag.onerror = () => {
+                    this.callbacks.onError('Failed to reach YouTube servers. Offline mode remains active.');
+                };
+                document.head.appendChild(tag);
+            }
+
+            initPlayer() {
+                if (this.player) return;
+                this.player = new YT.Player('ytPlayerContainer', {
+                    height: '100%',
+                    width: '100%',
+                    playerVars: {
+                        listType: 'playlist',
+                        list: this.activePlaylistId,
+                        autoplay: 0,
+                        controls: 1,
+                        rel: 0,
+                        modestbranding: 1,
+                        playsinline: 1,
+                        origin: window.location.origin
+                    },
+                    events: {
+                        onReady: (e) => this.onPlayerReady(e),
+                        onStateChange: (e) => this.onPlayerStateChange(e),
+                        onError: (e) => this.onPlayerError(e)
+                    }
+                });
+            }
+
+            onPlayerReady() {
+                this.isReady = true;
+                this.syncPlaylistItems(false);
+                this.startProgressPolling();
+            }
+
+            loadSource({ playlistId, videoId }, autoPlay = true) {
+                if (!navigator.onLine) {
+                    this.callbacks.onError('Offline detected. Cannot load new YouTube stream without internet.');
+                    return;
+                }
+                this.activePlaylistId = playlistId || null;
+                this.activeVideoId = videoId || null;
+
+                if (!this.isReady || !this.player) {
+                    this.loadAPI();
+                    return;
+                }
+
+                if (playlistId) {
+                    if (autoPlay) {
+                        this.player.loadPlaylist({ list: playlistId, listType: 'playlist', index: 0 });
+                    } else {
+                        this.player.cuePlaylist({ list: playlistId, listType: 'playlist', index: 0 });
+                    }
+                    setTimeout(() => this.syncPlaylistItems(autoPlay), 1200);
+                } else if (videoId) {
+                    if (autoPlay) {
+                        this.player.loadVideoById(videoId);
+                    } else {
+                        this.player.cueVideoById(videoId);
+                    }
+                    this.playlistVideoIds = [videoId];
+                    setTimeout(() => this.syncPlaylistItems(autoPlay), 900);
+                }
+            }
+
+            syncPlaylistItems(autoPlay = false) {
+                if (!this.isReady || !this.player) return;
+
+                let ids = [];
+                if (typeof this.player.getPlaylist === 'function') {
+                    const list = this.player.getPlaylist();
+                    if (Array.isArray(list) && list.length > 0) {
+                        ids = list;
+                    }
+                }
+                if (ids.length === 0 && this.activeVideoId) {
+                    ids = [this.activeVideoId];
+                }
+
+                // Capture current video metadata if available
+                const currentData = typeof this.player.getVideoData === 'function' ? this.player.getVideoData() : null;
+                if (currentData && currentData.video_id) {
+                    this.videoMetadataCache[currentData.video_id] = {
+                        title: currentData.title || `YouTube Track (${currentData.video_id})`,
+                        author: currentData.author || 'YouTube Playlist Stream',
+                        duration: this.player.getDuration ? this.player.getDuration() : 0
+                    };
+                }
+
+                if (ids.length > 0) {
+                    this.playlistVideoIds = ids;
+                    const tracks = ids.map((vid, idx) => {
+                        const cached = this.videoMetadataCache[vid];
+                        return {
+                            id: `yt-${vid}-${idx}`,
+                            videoId: vid,
+                            playlistIndex: idx,
+                            title: cached ? cached.title : `YouTube Track #${idx + 1} (${vid})`,
+                            artist: cached ? cached.author : `Playlist: ${this.activePlaylistId || 'Single Video'}`,
+                            duration: cached ? cached.duration : 0,
+                            format: 'YT STREAM',
+                            source: 'youtube',
+                            isDemo: false
+                        };
+                    });
+                    this.callbacks.onPlaylistSynced(tracks, autoPlay);
+                }
+            }
+
+            onPlayerStateChange(event) {
+                const state = event.data;
+                // Update metadata for newly loaded video in playlist
+                if (state === YT.PlayerState.PLAYING || state === YT.PlayerState.CUED || state === YT.PlayerState.BUFFERING) {
+                    const data = this.player.getVideoData ? this.player.getVideoData() : null;
+                    const dur = this.player.getDuration ? this.player.getDuration() : 0;
+                    const idx = this.player.getPlaylistIndex ? this.player.getPlaylistIndex() : 0;
+
+                    if (data && data.video_id) {
+                        this.videoMetadataCache[data.video_id] = {
+                            title: data.title || `YouTube Track #${idx + 1}`,
+                            author: data.author || 'YouTube Stream',
+                            duration: dur
+                        };
+                        this.callbacks.onTrackMetadataUpdated(data.video_id, idx, {
+                            title: data.title || `YouTube Track #${idx + 1}`,
+                            artist: data.author || 'YouTube Stream',
+                            duration: dur
+                        });
+                    }
+                    // Refresh full list in case getPlaylist() just populated
+                    if (this.playlistVideoIds.length === 0) {
+                        this.syncPlaylistItems(false);
+                    }
+                }
+
+                if (state === YT.PlayerState.PLAYING) {
+                    this.callbacks.onPlayStateChange(true);
+                } else if (state === YT.PlayerState.PAUSED) {
+                    this.callbacks.onPlayStateChange(false);
+                } else if (state === YT.PlayerState.ENDED) {
+                    this.callbacks.onEnded();
+                }
+            }
+
+            onPlayerError(event) {
+                const code = event.data;
+                let msg = 'YouTube playback error.';
+                if (code === 2) msg = 'Invalid YouTube playlist or video ID.';
+                if (code === 5) msg = 'HTML5 player error on YouTube stream.';
+                if (code === 100) msg = 'Video not found or private.';
+                if (code === 101 || code === 150) msg = 'Uploader disabled external playback for this video. Skipping...';
+                this.callbacks.onError(msg, code === 101 || code === 150);
+            }
+
+            playAt(playlistIndex) {
+                if (!this.isReady) return;
+                if (this.activePlaylistId && typeof this.player.playVideoAt === 'function') {
+                    this.player.playVideoAt(playlistIndex);
+                } else {
+                    this.player.playVideo();
+                }
+            }
+
+            play() {
+                if (this.isReady) this.player.playVideo();
+            }
+
+            pause() {
+                if (this.isReady) this.player.pauseVideo();
+            }
+
+            seekTo(seconds) {
+                if (this.isReady) this.player.seekTo(seconds, true);
+            }
+
+            setVolume(vol0to1) {
+                if (this.isReady) this.player.setVolume(Math.round(vol0to1 * 100));
+            }
+
+            mute() {
+                if (this.isReady) this.player.mute();
+            }
+
+            unMute() {
+                if (this.isReady) this.player.unMute();
+            }
+
+            startProgressPolling() {
+                if (this.pollTimer) clearInterval(this.pollTimer);
+                this.pollTimer = setInterval(() => {
+                    if (!this.isReady || !this.player || typeof this.player.getPlayerState !== 'function') return;
+                    if (this.player.getPlayerState() === YT.PlayerState.PLAYING) {
+                        const current = this.player.getCurrentTime() || 0;
+                        const duration = this.player.getDuration() || 0;
+                        this.callbacks.onTimeUpdate(current, duration);
+                    }
+                }, 250);
+            }
+        }
+
+        // ==========================================
+        // 5. UNIFIED HYBRID MUSIC PLAYER CONTROLLER
+        // ==========================================
+        class HybridMusicPlayerApp {
+            constructor() {
+                this.dbManager = new IndexedDBManager();
+                this.visualizer = new AudioVisualizer('visualizerCanvas');
+                this.localAudio = new Audio();
+                this.localAudio.crossOrigin = 'anonymous';
+
+                // Web Audio API Nodes for Offline/Local Audio
+                this.audioCtx = null;
+                this.analyser = null;
+                this.sourceNode = null;
+
+                // Unified Queue State
+                this.localTracks = [];
+                this.ytTracks = [];
+                this.currentTrack = null; // Unified active track object
+                this.isPlaying = false;
+                this.isShuffle = false;
+                this.repeatMode = 'off'; // 'off' | 'all' | 'one'
+                this.filterType = 'all'; // 'all' | 'youtube' | 'offline'
+                this.searchQuery = '';
+                this.lastVolume = 0.8;
+                this.isMuted = false;
+                this.showYtVideo = true;
+                this.draggedTrackId = null;
+
+                // Saved YouTube Playlists in localStorage
+                this.savedYtPlaylists = this.loadSavedYtPlaylists();
+
+                // Initialize YouTube Controller
+                this.ytController = new YouTubePlaylistController({
+                    onPlaylistSynced: (tracks, autoPlay) => {
+                        this.ytTracks = tracks;
+                        this.renderPlaylist();
+                        if (tracks.length > 0 && (!this.currentTrack || autoPlay)) {
+                            this.selectTrack(tracks[0], autoPlay);
+                        }
+                    },
+                    onTrackMetadataUpdated: (videoId, playlistIndex, meta) => {
+                        const target = this.ytTracks.find(t => t.videoId === videoId && t.playlistIndex === playlistIndex)
+                                    || this.ytTracks.find(t => t.videoId === videoId);
+                        if (target) {
+                            target.title = meta.title;
+                            target.artist = meta.artist;
+                            if (meta.duration > 0) target.duration = meta.duration;
+                        }
+                        if (this.currentTrack && this.currentTrack.source === 'youtube' && this.currentTrack.videoId === videoId) {
+                            this.currentTrack.title = meta.title;
+                            this.currentTrack.artist = meta.artist;
+                            if (meta.duration > 0) this.currentTrack.duration = meta.duration;
+                            this.updateNowPlayingMetadata(this.currentTrack);
+                        }
+                        this.renderPlaylist();
+                    },
+                    onPlayStateChange: (playing) => {
+                        if (this.currentTrack && this.currentTrack.source === 'youtube') {
+                            this.isPlaying = playing;
+                            this.visualizer.isPlaying = playing;
+                            this.updatePlayStateUI(playing);
+                            this.renderPlaylist();
+                        }
+                    },
+                    onTimeUpdate: (current, duration) => {
+                        if (this.currentTrack && this.currentTrack.source === 'youtube' && duration > 0) {
+                            const pct = (current / duration) * 100;
+                            this.dom.seekSlider.value = pct;
+                            this.dom.seekProgressFill.style.width = `${pct}%`;
+                            this.dom.currentTimeLabel.textContent = this.formatTime(current);
+                            this.dom.totalDurationLabel.textContent = this.formatTime(duration);
+                        }
+                    },
+                    onEnded: () => {
+                        if (this.currentTrack && this.currentTrack.source === 'youtube') {
+                            this.handleTrackEnded();
+                        }
+                    },
+                    onError: (msg, autoSkip = false) => {
+                        this.showToast(msg, 'error');
+                        if (autoSkip && this.ytTracks.length > 1) {
+                            setTimeout(() => this.playNext(), 1500);
+                        }
+                    }
+                });
+
+                this.cacheDOM();
+                this.bindEvents();
+                this.init();
+            }
+
+            cacheDOM() {
+                this.dom = {
+                    // Network Status
+                    networkDot: document.getElementById('networkDot'),
+                    networkStatusText: document.getElementById('networkStatusText'),
+
+                    // Header & Imports
+                    fileInput: document.getElementById('fileInput'),
+                    folderInput: document.getElementById('folderInput'),
+                    importFilesBtn: document.getElementById('importFilesBtn'),
+                    importFolderBtn: document.getElementById('importFolderBtn'),
+                    clearLibraryBtn: document.getElementById('clearLibraryBtn'),
+                    openYtModalBtn: document.getElementById('openYtModalBtn'),
+                    dropOverlay: document.getElementById('dropOverlay'),
+                    dropZoneCard: document.getElementById('dropZoneCard'),
+
+                    // Quick YouTube Bar
+                    quickYtInput: document.getElementById('quickYtInput'),
+                    quickYtLoadBtn: document.getElementById('quickYtLoadBtn'),
+                    savedYtSelect: document.getElementById('savedYtSelect'),
+                    activeYtPlaylistLabel: document.getElementById('activeYtPlaylistLabel'),
+
+                    // Stage & Visualizer
+                    stageLabel: document.getElementById('stageLabel'),
+                    liveIndicator: document.getElementById('liveIndicator'),
+                    albumPulse: document.getElementById('albumPulse'),
+                    artBadge: document.getElementById('artBadge'),
+                    visModeSwitch: document.getElementById('visModeSwitch'),
+                    visModeBars: document.getElementById('visModeBars'),
+                    visModeWave: document.getElementById('visModeWave'),
+                    ytPlayerWrapper: document.getElementById('ytPlayerWrapper'),
+                    toggleYtVideoBtn: document.getElementById('toggleYtVideoBtn'),
+                    toggleYtVideoText: document.getElementById('toggleYtVideoText'),
+
+                    // Track Metadata
+                    sourceBadge: document.getElementById('sourceBadge'),
+                    trackFormat: document.getElementById('trackFormat'),
+                    currentTitle: document.getElementById('currentTitle'),
+                    currentArtist: document.getElementById('currentArtist'),
+
+                    // Playlist & Search
+                    playlistContainer: document.getElementById('playlistContainer'),
+                    searchInput: document.getElementById('searchInput'),
+                    clearSearchBtn: document.getElementById('clearSearchBtn'),
+                    trackCountBadge: document.getElementById('trackCountBadge'),
+                    storageStatus: document.getElementById('storageStatus'),
+                    filterTabs: document.querySelectorAll('.filter-tab'),
+
+                    // Footer Player Controls
+                    footerTitle: document.getElementById('footerTitle'),
+                    footerArtist: document.getElementById('footerArtist'),
+                    playPauseBtn: document.getElementById('playPauseBtn'),
+                    playIcon: document.getElementById('playIcon'),
+                    pauseIcon: document.getElementById('pauseIcon'),
+                    prevBtn: document.getElementById('prevBtn'),
+                    nextBtn: document.getElementById('nextBtn'),
+                    shuffleBtn: document.getElementById('shuffleBtn'),
+                    shuffleDot: document.getElementById('shuffleDot'),
+                    repeatBtn: document.getElementById('repeatBtn'),
+                    repeatDot: document.getElementById('repeatDot'),
+                    repeatOneBadge: document.getElementById('repeatOneBadge'),
+                    seekSlider: document.getElementById('seekSlider'),
+                    seekProgressFill: document.getElementById('seekProgressFill'),
+                    currentTimeLabel: document.getElementById('currentTimeLabel'),
+                    totalDurationLabel: document.getElementById('totalDurationLabel'),
+                    volumeSlider: document.getElementById('volumeSlider'),
+                    volumeFill: document.getElementById('volumeFill'),
+                    muteBtn: document.getElementById('muteBtn'),
+                    volHighIcon: document.getElementById('volHighIcon'),
+                    volMuteIcon: document.getElementById('volMuteIcon'),
+
+                    // Modals & Toasts
+                    confirmModal: document.getElementById('confirmModal'),
+                    cancelClearBtn: document.getElementById('cancelClearBtn'),
+                    confirmClearBtn: document.getElementById('confirmClearBtn'),
+                    ytModal: document.getElementById('ytModal'),
+                    closeYtModalBtn: document.getElementById('closeYtModalBtn'),
+                    ytCustomLabelInput: document.getElementById('ytCustomLabelInput'),
+                    ytModalUrlInput: document.getElementById('ytModalUrlInput'),
+                    resetDefaultYtBtn: document.getElementById('resetDefaultYtBtn'),
+                    saveAndLoadYtBtn: document.getElementById('saveAndLoadYtBtn'),
+                    toastContainer: document.getElementById('toastContainer')
+                };
+            }
+
+            async init() {
+                this.visualizer.start();
+                this.localAudio.volume = this.lastVolume;
+                this.updateNetworkStatusUI();
+                this.renderSavedYtDropdown();
+
+                // 1. Initialize Offline Local Library (IndexedDB + Built-in Synths)
+                try {
+                    await this.dbManager.init();
+                    const savedTracks = await this.dbManager.getAllTracks();
+                    const hydratedSaved = savedTracks.map(item => ({
+                        ...item,
+                        source: 'offline',
+                        url: URL.createObjectURL(item.blob)
+                    }));
+
+                    const demoTracks = await SynthTrackGenerator.generateDemoTracks();
+                    this.localTracks = [...hydratedSaved, ...demoTracks];
+                    this.updateStorageStatus(hydratedSaved.length);
+                } catch (err) {
+                    console.error('Offline DB init error:', err);
+                    this.showToast('Offline storage unavailable; demo tracks active.', 'error');
+                }
+
+                // 2. Initialize Online YouTube Playlist Engine if Online
+                if (navigator.onLine) {
+                    this.ytController.loadAPI();
+                } else if (this.localTracks.length > 0) {
+                    this.selectTrack(this.localTracks[0], false);
+                }
+
+                this.renderPlaylist();
+            }
+
+            getUnifiedTracks() {
+                return [...this.ytTracks, ...this.localTracks];
+            }
+
+            initWebAudio() {
+                if (this.audioCtx) {
+                    if (this.audioCtx.state === 'suspended') {
+                        this.audioCtx.resume();
+                    }
+                    return;
+                }
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.audioCtx = new AudioContext();
+                this.analyser = this.audioCtx.createAnalyser();
+                this.sourceNode = this.audioCtx.createMediaElementSource(this.localAudio);
+                this.sourceNode.connect(this.analyser);
+                this.analyser.connect(this.audioCtx.destination);
+                this.visualizer.setupAnalyser(this.analyser);
+            }
+
+            bindEvents() {
+                // Online / Offline Network Listeners
+                window.addEventListener('online', () => {
+                    this.updateNetworkStatusUI();
+                    this.showToast('Back online! YouTube streaming enabled.', 'success');
+                    if (!this.ytController.isReady) {
+                        this.ytController.loadAPI();
+                    }
+                });
+
+                window.addEventListener('offline', () => {
+                    this.updateNetworkStatusUI();
+                    this.showToast('You are offline. Switched focus to Local Offline Library.', 'info');
+                    if (this.currentTrack && this.currentTrack.source === 'youtube') {
+                        this.pause();
+                        if (this.localTracks.length > 0) {
+                            this.selectTrack(this.localTracks[0], false);
+                        }
+                    }
+                });
+
+                // File & Folder Upload Triggers
+                this.dom.importFilesBtn.addEventListener('click', () => this.dom.fileInput.click());
+                this.dom.dropZoneCard.addEventListener('click', () => this.dom.fileInput.click());
+                this.dom.importFolderBtn.addEventListener('click', () => this.dom.folderInput.click());
+
+                this.dom.fileInput.addEventListener('change', (e) => {
+                    if (e.target.files.length) this.handleFiles(Array.from(e.target.files));
+                    e.target.value = '';
+                });
+
+                this.dom.folderInput.addEventListener('change', (e) => {
+                    if (e.target.files.length) this.handleFiles(Array.from(e.target.files));
+                    e.target.value = '';
+                });
+
+                // Drag and Drop Anywhere on Page
+                let dragCounter = 0;
+                window.addEventListener('dragenter', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        dragCounter++;
+                        this.dom.dropOverlay.classList.remove('hidden');
+                        this.dom.dropOverlay.classList.add('flex');
+                    }
+                });
+
+                window.addEventListener('dragleave', (e) => {
+                    if (e.dataTransfer.types.includes('Files')) {
+                        dragCounter--;
+                        if (dragCounter <= 0) {
+                            dragCounter = 0;
+                            this.dom.dropOverlay.classList.add('hidden');
+                            this.dom.dropOverlay.classList.remove('flex');
+                        }
+                    }
+                });
+
+                window.addEventListener('dragover', (e) => e.preventDefault());
+
+                window.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    dragCounter = 0;
+                    this.dom.dropOverlay.classList.add('hidden');
+                    this.dom.dropOverlay.classList.remove('flex');
+
+                    if (e.dataTransfer.items) {
+                        const files = await this.extractFilesFromDataTransfer(e.dataTransfer.items);
+                        if (files.length) this.handleFiles(files);
+                    } else if (e.dataTransfer.files.length) {
+                        this.handleFiles(Array.from(e.dataTransfer.files));
+                    }
+                });
+
+                // YouTube Playlist Controls & Modal
+                this.dom.quickYtLoadBtn.addEventListener('click', () => {
+                    const url = this.dom.quickYtInput.value.trim();
+                    if (url) {
+                        this.loadCustomYouTubeInput(url, '');
+                        this.dom.quickYtInput.value = '';
+                    }
+                });
+
+                this.dom.quickYtInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        this.dom.quickYtLoadBtn.click();
+                    }
+                });
+
+                this.dom.savedYtSelect.addEventListener('change', (e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    const found = this.savedYtPlaylists.find(p => p.id === val);
+                    if (found) {
+                        this.dom.activeYtPlaylistLabel.textContent = `YT: ${found.label}`;
+                        this.ytController.loadSource({ playlistId: found.playlistId, videoId: found.videoId }, true);
+                        this.showToast(`Loaded "${found.label}"`, 'info');
+                    }
+                });
+
+                this.dom.openYtModalBtn.addEventListener('click', () => {
+                    this.dom.ytModal.classList.remove('hidden');
+                    this.dom.ytModal.classList.add('flex');
+                });
+
+                this.dom.closeYtModalBtn.addEventListener('click', () => {
+                    this.dom.ytModal.classList.add('hidden');
+                    this.dom.ytModal.classList.remove('flex');
+                });
+
+                this.dom.resetDefaultYtBtn.addEventListener('click', () => {
+                    this.loadCustomYouTubeInput(DEFAULT_YT_PLAYLIST_URL, 'Default User Playlist');
+                    this.dom.ytModal.classList.add('hidden');
+                    this.dom.ytModal.classList.remove('flex');
+                });
+
+                this.dom.saveAndLoadYtBtn.addEventListener('click', () => {
+                    const url = this.dom.ytModalUrlInput.value.trim();
+                    const label = this.dom.ytCustomLabelInput.value.trim();
+                    if (!url) {
+                        this.showToast('Please enter a valid YouTube playlist or video URL.', 'error');
+                        return;
+                    }
+                    this.loadCustomYouTubeInput(url, label);
+                    this.dom.ytModalUrlInput.value = '';
+                    this.dom.ytCustomLabelInput.value = '';
+                    this.dom.ytModal.classList.add('hidden');
+                    this.dom.ytModal.classList.remove('flex');
+                });
+
+                // Toggle YouTube Mini Video Screen Visibility
+                this.dom.toggleYtVideoBtn.addEventListener('click', () => {
+                    this.showYtVideo = !this.showYtVideo;
+                    this.updateStageDisplayMode();
+                });
+
+                // Transport Controls
+                this.dom.playPauseBtn.addEventListener('click', () => this.togglePlay());
+                this.dom.prevBtn.addEventListener('click', () => this.playPrevious());
+                this.dom.nextBtn.addEventListener('click', () => this.playNext());
+                this.dom.shuffleBtn.addEventListener('click', () => this.toggleShuffle());
+                this.dom.repeatBtn.addEventListener('click', () => this.cycleRepeat());
+
+                // Seek Bar
+                this.dom.seekSlider.addEventListener('input', (e) => {
+                    const pct = parseFloat(e.target.value);
+                    this.dom.seekProgressFill.style.width = `${pct}%`;
+                    const dur = this.getActiveDuration();
+                    if (dur > 0) {
+                        this.dom.currentTimeLabel.textContent = this.formatTime((pct / 100) * dur);
+                    }
+                });
+
+                this.dom.seekSlider.addEventListener('change', (e) => {
+                    const pct = parseFloat(e.target.value);
+                    const dur = this.getActiveDuration();
+                    if (dur > 0) {
+                        const targetSec = (pct / 100) * dur;
+                        if (this.currentTrack?.source === 'youtube') {
+                            this.ytController.seekTo(targetSec);
+                        } else {
+                            this.localAudio.currentTime = targetSec;
+                        }
+                    }
+                });
+
+                // Volume Controls (Synced across Local Audio & YouTube IFrame)
+                this.dom.volumeSlider.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    this.isMuted = val === 0;
+                    if (val > 0) this.lastVolume = val;
+                    this.applyVolumeToEngines(val, this.isMuted);
+                    this.updateVolumeUI();
+                });
+
+                this.dom.muteBtn.addEventListener('click', () => {
+                    if (this.isMuted || this.lastVolume === 0) {
+                        this.isMuted = false;
+                        this.lastVolume = this.lastVolume || 0.8;
+                        this.applyVolumeToEngines(this.lastVolume, false);
+                    } else {
+                        this.isMuted = true;
+                        this.applyVolumeToEngines(0, true);
+                    }
+                    this.updateVolumeUI();
+                });
+
+                // Local Audio Element Events
+                this.localAudio.addEventListener('timeupdate', () => {
+                    if (this.currentTrack?.source === 'offline' && this.localAudio.duration) {
+                        const pct = (this.localAudio.currentTime / this.localAudio.duration) * 100;
+                        this.dom.seekSlider.value = pct;
+                        this.dom.seekProgressFill.style.width = `${pct}%`;
+                        this.dom.currentTimeLabel.textContent = this.formatTime(this.localAudio.currentTime);
+                    }
+                });
+
+                this.localAudio.addEventListener('ended', () => {
+                    if (this.currentTrack?.source === 'offline') {
+                        this.handleTrackEnded();
+                    }
+                });
+
+                this.localAudio.addEventListener('loadedmetadata', () => {
+                    if (this.currentTrack?.source === 'offline') {
+                        this.dom.totalDurationLabel.textContent = this.formatTime(this.localAudio.duration);
+                    }
+                });
+
+                // Visualizer Mode Switch
+                this.dom.visModeBars.addEventListener('click', () => {
+                    this.visualizer.setMode('bars');
+                    this.dom.visModeBars.classList.add('bg-white/10', 'text-white');
+                    this.dom.visModeBars.classList.remove('text-zinc-400');
+                    this.dom.visModeWave.classList.remove('bg-white/10', 'text-white');
+                    this.dom.visModeWave.classList.add('text-zinc-400');
+                });
+
+                this.dom.visModeWave.addEventListener('click', () => {
+                    this.visualizer.setMode('wave');
+                    this.dom.visModeWave.classList.add('bg-white/10', 'text-white');
+                    this.dom.visModeWave.classList.remove('text-zinc-400');
+                    this.dom.visModeBars.classList.remove('bg-white/10', 'text-white');
+                    this.dom.visModeBars.classList.add('text-zinc-400');
+                });
+
+                // Search & Filter Tabs
+                this.dom.searchInput.addEventListener('input', (e) => {
+                    this.searchQuery = e.target.value.trim().toLowerCase();
+                    this.dom.clearSearchBtn.classList.toggle('hidden', !this.searchQuery);
+                    this.renderPlaylist();
+                });
+
+                this.dom.clearSearchBtn.addEventListener('click', () => {
+                    this.searchQuery = '';
+                    this.dom.searchInput.value = '';
+                    this.dom.clearSearchBtn.classList.add('hidden');
+                    this.renderPlaylist();
+                });
+
+                this.dom.filterTabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        this.filterType = tab.dataset.filter;
+                        this.dom.filterTabs.forEach(t => {
+                            t.classList.remove('bg-indigo-500/20', 'border-indigo-500/30', 'text-indigo-300', 'font-semibold');
+                            t.classList.add('text-zinc-400', 'border-transparent');
+                        });
+                        tab.classList.add('bg-indigo-500/20', 'border-indigo-500/30', 'text-indigo-300', 'font-semibold');
+                        tab.classList.remove('text-zinc-400', 'border-transparent');
+                        this.renderPlaylist();
+                    });
+                });
+
+                // Clear Offline Library Modal
+                this.dom.clearLibraryBtn.addEventListener('click', () => {
+                    const hasUploads = this.localTracks.some(t => !t.isDemo);
+                    if (!hasUploads) {
+                        this.showToast('No uploaded offline files to clear.', 'info');
+                        return;
+                    }
+                    this.dom.confirmModal.classList.remove('hidden');
+                    this.dom.confirmModal.classList.add('flex');
+                });
+
+                this.dom.cancelClearBtn.addEventListener('click', () => {
+                    this.dom.confirmModal.classList.add('hidden');
+                    this.dom.confirmModal.classList.remove('flex');
+                });
+
+                this.dom.confirmClearBtn.addEventListener('click', async () => {
+                    await this.clearUploadedLibrary();
+                    this.dom.confirmModal.classList.add('hidden');
+                    this.dom.confirmModal.classList.remove('flex');
+                });
+
+                // Keyboard Shortcuts
+                window.addEventListener('keydown', (e) => {
+                    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+                    if (e.code === 'Space') {
+                        e.preventDefault();
+                        this.togglePlay();
+                    } else if (e.code === 'ArrowRight') {
+                        e.preventDefault();
+                        this.seekRelative(5);
+                    } else if (e.code === 'ArrowLeft') {
+                        e.preventDefault();
+                        this.seekRelative(-5);
+                    }
+                });
+            }
+
+            // Parse YouTube URLs (playlist or video) and save to localStorage
+            parseYouTubeUrl(input) {
+                const trimmed = input.trim();
+                try {
+                    if (trimmed.includes('youtube.com') || trimmed.includes('youtu.be')) {
+                        const urlObj = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+                        const listId = urlObj.searchParams.get('list');
+                        let videoId = urlObj.searchParams.get('v');
+                        if (!videoId && urlObj.hostname === 'youtu.be') {
+                            videoId = urlObj.pathname.slice(1);
+                        }
+                        if (listId) return { playlistId: listId, videoId: null };
+                        if (videoId) return { playlistId: null, videoId };
+                    }
+                } catch (_) {
+                    // Fallback to raw ID detection
+                }
+                if (trimmed.startsWith('PL') || trimmed.startsWith('OLAK') || trimmed.startsWith('UU')) {
+                    return { playlistId: trimmed, videoId: null };
+                }
+                if (trimmed.length === 11) {
+                    return { playlistId: null, videoId: trimmed };
+                }
+                return null;
+            }
+
+            loadSavedYtPlaylists() {
+                const defaults = [
+                    {
+                        id: 'default-pl',
+                        label: 'My Playlist (PLD4NjSyB58rw)',
+                        playlistId: DEFAULT_YT_PLAYLIST_ID,
+                        videoId: null
+                    }
+                ];
+                try {
+                    const raw = localStorage.getItem('aethersound_yt_playlists');
+                    if (raw) {
+                        const parsed = JSON.parse(raw);
+                        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                    }
+                } catch (_) {}
+                return defaults;
+            }
+
+            saveYtPlaylistRecord(label, parsed) {
+                const key = parsed.playlistId || parsed.videoId;
+                const existingIdx = this.savedYtPlaylists.findIndex(p => (p.playlistId || p.videoId) === key);
+                const record = {
+                    id: 'yt-pl-' + Date.now(),
+                    label: label || (parsed.playlistId ? `Playlist (${parsed.playlistId.slice(0, 12)}...)` : `Video (${parsed.videoId})`),
+                    playlistId: parsed.playlistId,
+                    videoId: parsed.videoId
+                };
+                if (existingIdx !== -1) {
+                    this.savedYtPlaylists[existingIdx] = record;
+                } else {
+                    this.savedYtPlaylists.unshift(record);
+                }
+                localStorage.setItem('aethersound_yt_playlists', JSON.stringify(this.savedYtPlaylists));
+                this.renderSavedYtDropdown(record.id);
+                return record;
+            }
+
+            renderSavedYtDropdown(selectedId = null) {
+                const select = this.dom.savedYtSelect;
+                select.innerHTML = '';
+                this.savedYtPlaylists.forEach(item => {
+                    const opt = document.createElement('option');
+                    opt.value = item.id;
+                    opt.textContent = item.label;
+                    if (selectedId && item.id === selectedId) opt.selected = true;
+                    select.appendChild(opt);
+                });
+            }
+
+            loadCustomYouTubeInput(rawInput, customLabel) {
+                if (!navigator.onLine) {
+                    this.showToast('You are offline. Connect to internet to load YouTube links.', 'error');
+                    return;
+                }
+                const parsed = this.parseYouTubeUrl(rawInput);
+                if (!parsed) {
+                    this.showToast('Could not recognize YouTube playlist or video ID.', 'error');
+                    return;
+                }
+                const saved = this.saveYtPlaylistRecord(customLabel, parsed);
+                this.dom.activeYtPlaylistLabel.textContent = `YT: ${saved.label}`;
+                this.ytController.loadSource(parsed, true);
+                this.showToast(`Streaming YouTube: ${saved.label}`, 'success');
+            }
+
+            // Switch seamlessly between Offline Audio Engine & Online YouTube Engine
+            async selectTrack(track, autoPlay = true) {
+                if (!track) return;
+
+                if (track.source === 'youtube' && !navigator.onLine) {
+                    this.showToast('Offline mode active. Choose a local track to play without internet.', 'error');
+                    return;
+                }
+
+                const prevSource = this.currentTrack?.source;
+                this.currentTrack = track;
+
+                // Stop the other engine cleanly so audio never overlaps
+                if (track.source === 'youtube') {
+                    this.localAudio.pause();
+                    this.visualizer.isYouTubeMode = true;
+                    this.dom.toggleYtVideoBtn.classList.remove('hidden');
+                    this.updateStageDisplayMode();
+
+                    if (autoPlay) {
+                        this.ytController.playAt(track.playlistIndex);
+                    }
+                } else {
+                    if (prevSource === 'youtube') {
+                        this.ytController.pause();
+                    }
+                    this.visualizer.isYouTubeMode = false;
+                    this.dom.toggleYtVideoBtn.classList.add('hidden');
+                    this.updateStageDisplayMode();
+
+                    this.localAudio.src = track.url;
+                    this.localAudio.load();
+
+                    if (autoPlay) {
+                        this.play();
+                    } else {
+                        this.isPlaying = false;
+                        this.visualizer.isPlaying = false;
+                        this.updatePlayStateUI(false);
+                    }
+                }
+
+                this.updateNowPlayingMetadata(track);
+                this.dom.seekSlider.value = 0;
+                this.dom.seekProgressFill.style.width = '0%';
+                this.dom.currentTimeLabel.textContent = '0:00';
+                this.dom.totalDurationLabel.textContent = this.formatTime(track.duration);
+                this.renderPlaylist();
+            }
+
+            updateStageDisplayMode() {
+                const isYt = this.currentTrack?.source === 'youtube';
+                if (isYt && this.showYtVideo) {
+                    this.dom.ytPlayerWrapper.classList.remove('opacity-0', 'pointer-events-none');
+                    this.dom.artBadge.classList.add('opacity-0');
+                    this.dom.stageLabel.textContent = 'YouTube Stream Viewport';
+                    this.dom.toggleYtVideoText.textContent = 'Visualizer';
+                } else {
+                    this.dom.ytPlayerWrapper.classList.add('opacity-0', 'pointer-events-none');
+                    this.dom.artBadge.classList.remove('opacity-0');
+                    this.dom.stageLabel.textContent = isYt ? 'YouTube Reactive Spectrum' : 'Local FFT Spectrum';
+                    this.dom.toggleYtVideoText.textContent = 'Show Video';
+                }
+            }
+
+            updateNowPlayingMetadata(track) {
+                this.dom.currentTitle.textContent = track.title;
+                this.dom.currentArtist.textContent = track.artist;
+                this.dom.footerTitle.textContent = track.title;
+                this.dom.footerArtist.textContent = track.artist;
+                this.dom.trackFormat.textContent = track.format;
+
+                if (track.source === 'youtube') {
+                    this.dom.sourceBadge.textContent = 'YOUTUBE STREAM';
+                    this.dom.sourceBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25';
+                } else {
+                    this.dom.sourceBadge.textContent = track.isDemo ? 'OFFLINE SYNTH DEMO' : 'LOCAL OFFLINE';
+                    this.dom.sourceBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25';
+                }
+            }
+
+            async play() {
+                const all = this.getUnifiedTracks();
+                if (!this.currentTrack && all.length > 0) {
+                    await this.selectTrack(all[0], true);
+                    return;
+                }
+                if (!this.currentTrack) return;
+
+                if (this.currentTrack.source === 'youtube') {
+                    if (!navigator.onLine) {
+                        this.showToast('No internet connection for YouTube playback.', 'error');
+                        return;
+                    }
+                    this.ytController.play();
+                    this.isPlaying = true;
+                    this.visualizer.isPlaying = true;
+                    this.updatePlayStateUI(true);
+                } else {
+                    try {
+                        this.initWebAudio();
+                        await this.localAudio.play();
+                        this.isPlaying = true;
+                        this.visualizer.isPlaying = true;
+                        this.updatePlayStateUI(true);
+                    } catch (err) {
+                        console.error('Local audio playback error:', err);
+                    }
+                }
+                this.renderPlaylist();
+            }
+
+            pause() {
+                if (this.currentTrack?.source === 'youtube') {
+                    this.ytController.pause();
+                } else {
+                    this.localAudio.pause();
+                }
+                this.isPlaying = false;
+                this.visualizer.isPlaying = false;
+                this.updatePlayStateUI(false);
+                this.renderPlaylist();
+            }
+
+            togglePlay() {
+                if (this.isPlaying) this.pause();
+                else this.play();
+            }
+
+            getActiveQueuePool() {
+                if (this.filterType === 'youtube') return this.ytTracks;
+                if (this.filterType === 'offline') return this.localTracks;
+                // In 'all' mode, stay within current engine's list unless at boundary, or traverse unified list
+                return navigator.onLine ? this.getUnifiedTracks() : this.localTracks;
+            }
+
+            playNext() {
+                const pool = this.getActiveQueuePool();
+                if (pool.length === 0) return;
+
+                const currentIdx = pool.findIndex(t => t.id === this.currentTrack?.id);
+                if (this.isShuffle && pool.length > 1) {
+                    let nextIdx;
+                    do {
+                        nextIdx = Math.floor(Math.random() * pool.length);
+                    } while (nextIdx === currentIdx);
+                    this.selectTrack(pool[nextIdx], true);
+                } else {
+                    const nextIdx = (currentIdx + 1) % pool.length;
+                    this.selectTrack(pool[nextIdx], true);
+                }
+            }
+
+            playPrevious() {
+                const pool = this.getActiveQueuePool();
+                if (pool.length === 0) return;
+
+                const currentTime = this.currentTrack?.source === 'youtube'
+                    ? (this.ytController.player?.getCurrentTime?.() || 0)
+                    : this.localAudio.currentTime;
+
+                if (currentTime > 3) {
+                    if (this.currentTrack?.source === 'youtube') this.ytController.seekTo(0);
+                    else this.localAudio.currentTime = 0;
+                    return;
+                }
+
+                const currentIdx = pool.findIndex(t => t.id === this.currentTrack?.id);
+                const prevIdx = (currentIdx - 1 + pool.length) % pool.length;
+                this.selectTrack(pool[prevIdx], true);
+            }
+
+            handleTrackEnded() {
+                if (this.repeatMode === 'one') {
+                    if (this.currentTrack?.source === 'youtube') {
+                        this.ytController.seekTo(0);
+                        this.ytController.play();
+                    } else {
+                        this.localAudio.currentTime = 0;
+                        this.play();
+                    }
+                    return;
+                }
+
+                const pool = this.getActiveQueuePool();
+                const currentIdx = pool.findIndex(t => t.id === this.currentTrack?.id);
+
+                if (this.repeatMode === 'all' || this.isShuffle || currentIdx < pool.length - 1) {
+                    this.playNext();
+                } else {
+                    this.pause();
+                }
+            }
+
+            seekRelative(deltaSeconds) {
+                const dur = this.getActiveDuration();
+                if (!dur) return;
+                if (this.currentTrack?.source === 'youtube') {
+                    const cur = this.ytController.player?.getCurrentTime?.() || 0;
+                    this.ytController.seekTo(Math.max(0, Math.min(dur, cur + deltaSeconds)));
+                } else {
+                    this.localAudio.currentTime = Math.max(0, Math.min(dur, this.localAudio.currentTime + deltaSeconds));
+                }
+            }
+
+            getActiveDuration() {
+                if (this.currentTrack?.source === 'youtube') {
+                    return this.ytController.player?.getDuration?.() || this.currentTrack.duration || 0;
+                }
+                return this.localAudio.duration || 0;
+            }
+
+            applyVolumeToEngines(vol, muted) {
+                this.localAudio.volume = vol;
+                this.localAudio.muted = muted;
+                if (muted) {
+                    this.ytController.mute();
+                } else {
+                    this.ytController.unMute();
+                    this.ytController.setVolume(vol);
+                }
+            }
+
+            toggleShuffle() {
+                this.isShuffle = !this.isShuffle;
+                this.dom.shuffleBtn.classList.toggle('text-indigo-400', this.isShuffle);
+                this.dom.shuffleBtn.classList.toggle('text-zinc-400', !this.isShuffle);
+                this.dom.shuffleDot.classList.toggle('hidden', !this.isShuffle);
+                this.showToast(`Shuffle ${this.isShuffle ? 'enabled' : 'disabled'}`, 'info');
+            }
+
+            cycleRepeat() {
+                const modes = ['off', 'all', 'one'];
+                this.repeatMode = modes[(modes.indexOf(this.repeatMode) + 1) % modes.length];
+
+                this.dom.repeatBtn.classList.toggle('text-indigo-400', this.repeatMode !== 'off');
+                this.dom.repeatBtn.classList.toggle('text-zinc-400', this.repeatMode === 'off');
+                this.dom.repeatDot.classList.toggle('hidden', this.repeatMode === 'off');
+                this.dom.repeatOneBadge.classList.toggle('hidden', this.repeatMode !== 'one');
+                this.showToast(`Repeat: ${this.repeatMode.toUpperCase()}`, 'info');
+            }
+
+            updatePlayStateUI(playing) {
+                this.dom.playIcon.classList.toggle('hidden', playing);
+                this.dom.pauseIcon.classList.toggle('hidden', !playing);
+                const isYt = this.currentTrack?.source === 'youtube';
+                this.dom.liveIndicator.className = playing
+                    ? `w-2 h-2 rounded-full ${isYt ? 'bg-rose-500' : 'bg-indigo-400'} animate-ping`
+                    : 'w-2 h-2 rounded-full bg-zinc-600';
+                this.dom.albumPulse.classList.toggle('scale-105', playing);
+            }
+
+            updateVolumeUI() {
+                const effectiveVol = this.isMuted ? 0 : this.lastVolume;
+                this.dom.volumeSlider.value = effectiveVol;
+                this.dom.volumeFill.style.width = `${effectiveVol * 100}%`;
+                this.dom.volHighIcon.classList.toggle('hidden', effectiveVol === 0);
+                this.dom.volMuteIcon.classList.toggle('hidden', effectiveVol > 0);
+            }
+
+            updateNetworkStatusUI() {
+                const online = navigator.onLine;
+                this.dom.networkDot.className = online
+                    ? 'w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block'
+                    : 'w-1.5 h-1.5 rounded-full bg-amber-400 inline-block';
+                this.dom.networkStatusBadge.className = online
+                    ? 'text-[11px] text-emerald-400 font-medium flex items-center gap-1.5 mt-0.5'
+                    : 'text-[11px] text-amber-400 font-medium flex items-center gap-1.5 mt-0.5';
+                this.dom.networkStatusText.textContent = online
+                    ? 'Online • YouTube & Local Ready'
+                    : 'Offline Mode • Local IndexedDB Active';
+            }
+
+            // Folder & File Import Logic
+            async extractFilesFromDataTransfer(items) {
+                const files = [];
+                const traverseEntry = async (entry) => {
+                    if (entry.isFile) {
+                        const file = await new Promise(res => entry.file(res));
+                        files.push(file);
+                    } else if (entry.isDirectory) {
+                        const reader = entry.createReader();
+                        const entries = await new Promise(res => reader.readEntries(res));
+                        for (const child of entries) {
+                            await traverseEntry(child);
+                        }
+                    }
+                };
+                for (const item of items) {
+                    const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+                    if (entry) await traverseEntry(entry);
+                }
+                return files;
+            }
+
+            async handleFiles(fileList) {
+                const validExtensions = ['.mp3', '.wav', '.ogg', '.flac', '.m4a'];
+                const audioFiles = fileList.filter(file => {
+                    const ext = '.' + file.name.split('.').pop().toLowerCase();
+                    return file.type.startsWith('audio/') || validExtensions.includes(ext);
+                });
+
+                if (audioFiles.length === 0) {
+                    this.showToast('No supported audio files found (.mp3, .wav, .ogg, .flac, .m4a).', 'error');
+                    return;
+                }
+
+                this.showToast(`Saving ${audioFiles.length} file(s) to offline storage...`, 'info');
+                let addedCount = 0;
+
+                for (const file of audioFiles) {
+                    try {
+                        const metadata = this.parseFilenameMetadata(file.name);
+                        const duration = await this.probeAudioDuration(file);
+                        const id = 'local-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+                        const ext = file.name.split('.').pop().toUpperCase();
+
+                        const record = {
+                            id,
+                            title: metadata.title,
+                            artist: metadata.artist,
+                            duration,
+                            format: ext,
+                            source: 'offline',
+                            isDemo: false,
+                            blob: file,
+                            addedAt: Date.now()
+                        };
+
+                        await this.dbManager.saveTrack(record);
+                        this.localTracks.unshift({
+                            ...record,
+                            url: URL.createObjectURL(file)
+                        });
+                        addedCount++;
+                    } catch (err) {
+                        console.error('Import error:', file.name, err);
+                    }
+                }
+
+                if (addedCount > 0) {
+                    const uploadedCount = this.localTracks.filter(t => !t.isDemo).length;
+                    this.updateStorageStatus(uploadedCount);
+                    this.renderPlaylist();
+                    this.showToast(`Saved ${addedCount} track(s) for 100% offline playback!`, 'success');
+
+                    if (!this.isPlaying && (!this.currentTrack || this.currentTrack.source === 'offline')) {
+                        this.selectTrack(this.localTracks[0], true);
+                    }
+                }
+            }
+
+            parseFilenameMetadata(filename) {
+                const cleanName = filename.replace(/\.[^/.]+$/, '').replace(/_/g, ' ').trim();
+                const parts = cleanName.split(' - ');
+                if (parts.length >= 2) {
+                    return {
+                        artist: parts[0].trim(),
+                        title: parts.slice(1).join(' - ').trim()
+                    };
+                }
+                return {
+                    title: cleanName,
+                    artist: 'Local Offline Library'
+                };
+            }
+
+            probeAudioDuration(file) {
+                return new Promise((resolve) => {
+                    const tempAudio = new Audio();
+                    const objUrl = URL.createObjectURL(file);
+                    tempAudio.src = objUrl;
+                    tempAudio.addEventListener('loadedmetadata', () => {
+                        const dur = isFinite(tempAudio.duration) ? tempAudio.duration : 0;
+                        URL.revokeObjectURL(objUrl);
+                        resolve(dur);
+                    });
+                    tempAudio.addEventListener('error', () => {
+                        URL.revokeObjectURL(objUrl);
+                        resolve(0);
+                    });
+                });
+            }
+
+            async deleteLocalTrackById(id, event) {
+                event.stopPropagation();
+                const idx = this.localTracks.findIndex(t => t.id === id);
+                if (idx === -1) return;
+
+                const track = this.localTracks[idx];
+                if (!track.isDemo) {
+                    await this.dbManager.deleteTrack(id);
+                }
+                URL.revokeObjectURL(track.url);
+                this.localTracks.splice(idx, 1);
+
+                if (this.currentTrack?.id === id) {
+                    this.pause();
+                    const all = this.getUnifiedTracks();
+                    if (all.length > 0) {
+                        this.selectTrack(all[0], false);
+                    } else {
+                        this.currentTrack = null;
+                    }
+                }
+
+                this.updateStorageStatus(this.localTracks.filter(t => !t.isDemo).length);
+                this.renderPlaylist();
+                this.showToast(`Removed "${track.title}"`, 'info');
+            }
+
+            async clearUploadedLibrary() {
+                await this.dbManager.clearAll();
+                const wasPlayingUploaded = this.currentTrack?.source === 'offline' && !this.currentTrack?.isDemo;
+
+                this.localTracks.forEach(t => {
+                    if (!t.isDemo) URL.revokeObjectURL(t.url);
+                });
+                this.localTracks = this.localTracks.filter(t => t.isDemo);
+                this.updateStorageStatus(0);
+
+                if (wasPlayingUploaded) {
+                    this.pause();
+                    const all = this.getUnifiedTracks();
+                    if (all.length > 0) this.selectTrack(all[0], false);
+                }
+
+                this.renderPlaylist();
+                this.showToast('Cleared all saved offline uploads from IndexedDB.', 'success');
+            }
+
+            updateStorageStatus(uploadedCount) {
+                this.dom.storageStatus.textContent = `${this.ytTracks.length} YouTube track(s) • ${uploadedCount} offline upload(s) + 3 synths`;
+            }
+
+            renderPlaylist() {
+                const container = this.dom.playlistContainer;
+                const activeId = this.currentTrack?.id;
+                const allTracks = this.getUnifiedTracks();
+
+                this.updateStorageStatus(this.localTracks.filter(t => !t.isDemo).length);
+
+                const filtered = allTracks.filter(track => {
+                    const matchesFilter =
+                        this.filterType === 'all' ||
+                        (this.filterType === 'youtube' && track.source === 'youtube') ||
+                        (this.filterType === 'offline' && track.source === 'offline');
+
+                    const matchesSearch =
+                        !this.searchQuery ||
+                        track.title.toLowerCase().includes(this.searchQuery) ||
+                        track.artist.toLowerCase().includes(this.searchQuery);
+
+                    return matchesFilter && matchesSearch;
+                });
+
+                this.dom.trackCountBadge.textContent = filtered.length;
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `
+                        <div class="py-12 text-center text-zinc-500">
+                            <p class="text-sm font-medium text-zinc-400">No tracks match this view</p>
+                            <p class="text-xs mt-1">Switch filter tabs, paste a YouTube playlist URL, or add offline audio files.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '';
+                filtered.forEach((track, displayIdx) => {
+                    const isActive = track.id === activeId;
+                    const isYt = track.source === 'youtube';
+
+                    const row = document.createElement('div');
+                    row.draggable = !isYt; // Allow drag-reorder on local tracks
+                    row.dataset.id = track.id;
+
+                    const activeClasses = isYt
+                        ? 'bg-rose-500/15 border border-rose-500/30 text-white'
+                        : 'bg-indigo-500/15 border border-indigo-500/30 text-white';
+
+                    row.className = `group grid grid-cols-12 items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition select-none ${
+                        isActive
+                            ? activeClasses
+                            : 'hover:bg-white/[0.04] text-zinc-300 border border-transparent'
+                    }`;
+
+                    const barColor = isYt ? 'bg-rose-400' : 'bg-indigo-400';
+                    const indexHtml = isActive && this.isPlaying
+                        ? `<div class="flex items-end justify-center gap-0.5 h-3.5">
+                               <span class="w-0.5 ${barColor} eq-bar-1"></span>
+                               <span class="w-0.5 ${barColor} eq-bar-2"></span>
+                               <span class="w-0.5 ${barColor} eq-bar-3"></span>
+                           </div>`
+                        : `<span class="text-xs font-mono ${isActive ? (isYt ? 'text-rose-400 font-bold' : 'text-indigo-400 font-bold') : 'text-zinc-500'}">${displayIdx + 1}</span>`;
+
+                    const badgeHtml = isYt
+                        ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/25 font-semibold shrink-0">YT</span>`
+                        : `<span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 font-semibold shrink-0">${track.isDemo ? 'SYNTH' : 'OFFLINE'}</span>`;
+
+                    const actionHtml = !isYt
+                        ? `<button class="delete-btn p-1.5 rounded-lg text-zinc-500 hover:text-red-400 hover:bg-red-500/10 opacity-100 sm:opacity-0 group-hover:opacity-100 transition" title="Remove offline track">
+                               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                               </svg>
+                           </button>`
+                        : `<span class="text-[10px] text-zinc-600 font-mono">STREAM</span>`;
+
+                    row.innerHTML = `
+                        <div class="col-span-1 text-center flex items-center justify-center">
+                            ${indexHtml}
+                        </div>
+                        <div class="col-span-7 sm:col-span-8 min-w-0 pr-2">
+                            <div class="flex items-center gap-2">
+                                <p class="text-sm font-medium truncate ${isActive ? (isYt ? 'text-rose-300 font-semibold' : 'text-indigo-300 font-semibold') : 'text-zinc-100'}">${this.escapeHtml(track.title)}</p>
+                                ${badgeHtml}
+                            </div>
+                            <p class="text-xs text-zinc-500 truncate">${this.escapeHtml(track.artist)}</p>
+                        </div>
+                        <div class="col-span-2 text-right text-xs font-mono text-zinc-400">
+                            ${track.duration > 0 ? this.formatTime(track.duration) : '--:--'}
+                        </div>
+                        <div class="col-span-2 sm:col-span-1 flex items-center justify-end gap-1">
+                            ${actionHtml}
+                        </div>
+                    `;
+
+                    row.addEventListener('click', () => {
+                        if (track.id === activeId) {
+                            this.togglePlay();
+                        } else {
+                            this.selectTrack(track, true);
+                        }
+                    });
+
+                    const delBtn = row.querySelector('.delete-btn');
+                    if (delBtn) {
+                        delBtn.addEventListener('click', (e) => this.deleteLocalTrackById(track.id, e));
+                    }
+
+                    // Drag-to-reorder support for local offline tracks
+                    if (!isYt) {
+                        row.addEventListener('dragstart', (e) => {
+                            this.draggedTrackId = track.id;
+                            row.classList.add('opacity-40');
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+                        row.addEventListener('dragend', () => {
+                            row.classList.remove('opacity-40');
+                            this.draggedTrackId = null;
+                        });
+                        row.addEventListener('dragover', (e) => {
+                            e.preventDefault();
+                            if (this.draggedTrackId && this.draggedTrackId !== track.id) {
+                                row.classList.add('border-t-indigo-400');
+                            }
+                        });
+                        row.addEventListener('dragleave', () => {
+                            row.classList.remove('border-t-indigo-400');
+                        });
+                        row.addEventListener('drop', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            row.classList.remove('border-t-indigo-400');
+                            if (!this.draggedTrackId || this.draggedTrackId === track.id) return;
+
+                            const fromIdx = this.localTracks.findIndex(t => t.id === this.draggedTrackId);
+                            const toIdx = this.localTracks.findIndex(t => t.id === track.id);
+                            if (fromIdx === -1 || toIdx === -1) return;
+
+                            const [moved] = this.localTracks.splice(fromIdx, 1);
+                            this.localTracks.splice(toIdx, 0, moved);
+                            this.renderPlaylist();
+                        });
+                    }
+
+                    container.appendChild(row);
+                });
+            }
+
+            formatTime(seconds) {
+                if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            escapeHtml(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            showToast(message, type = 'info') {
+                const colors = {
+                    info: 'border-white/15 bg-surface-800/95 text-zinc-100',
+                    success: 'border-emerald-500/40 bg-surface-800/95 text-emerald-400',
+                    error: 'border-rose-500/40 bg-surface-800/95 text-rose-400'
+                };
+                const toast = document.createElement('div');
+                toast.className = `px-4 py-2.5 rounded-xl border backdrop-blur-md shadow-xl text-xs font-medium transition-all duration-300 translate-x-4 opacity-0 ${colors[type]}`;
+                toast.textContent = message;
+
+                this.dom.toastContainer.appendChild(toast);
+                requestAnimationFrame(() => {
+                    toast.classList.remove('translate-x-4', 'opacity-0');
+                });
+
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-x-4');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3200);
+            }
+        }
+
+        // Boot Hybrid Application
+        window.addEventListener('DOMContentLoaded', () => {
+            window.playerApp = new HybridMusicPlayerApp();
+        });
+    </script>
+</body>
+</html>
+```
